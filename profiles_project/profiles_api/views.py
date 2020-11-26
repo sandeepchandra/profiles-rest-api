@@ -3,8 +3,16 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.authentication import TokenAuthentication
+from rest_framework import filters
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.settings import api_settings
+from rest_framework.permissions import IsAuthenticated
+#from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from profiles_api import serializers
+from profiles_api import models
+from profiles_api import permissions
 
 
 class HelloApiView(APIView):
@@ -77,8 +85,7 @@ class HelloViewSet(viewsets.ViewSet):
             return Response({"message":message})
         
         else:
-
-            return Response(serializer.errors, status=status.HTTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, pk=None):
         """Retrieve the data of single object"""
@@ -97,4 +104,32 @@ class HelloViewSet(viewsets.ViewSet):
         """"Deleting the object"""
         return(Response({"method":"DELETE"}))
 
+
+class UserProfileViews(viewsets.ModelViewSet):
+
+    serializer_class = serializers.UserProfileSerializer
+    queryset = models.UserProfile.objects.all()
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (permissions.UpdateOwnProfile,)
+    filter_backends = (filters.SearchFilter, )
+    search_fields = ('name', 'email')
+
+
+class LoginApiView(ObtainAuthToken):
+    renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
+
+
+class UserProfileFeedViewset(viewsets.ModelViewSet):
+    """Handles all the HTTP Methods for UserFeed"""
+    authentication_classes = (TokenAuthentication, )
+    serializer_class = serializers.ProfileFeedSerializer
+    queryset = models.UserProfileFeed.objects.all()
+    permission_classes = (
+        permissions.UpdateOwnStatus,
+        IsAuthenticated,
+    )
+
+    def perform_create(self, serializer):
+        """set the user profile to the logged user"""
+        serializer.save(user_profile=self.request.user)
 
